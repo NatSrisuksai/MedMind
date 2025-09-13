@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useMemo, useState } from "react";
-import { useParams } from "next/navigation";
+import { useSearchParams, useParams } from "next/navigation";
 import Script from "next/script";
 
 declare global {
@@ -10,7 +10,9 @@ declare global {
 }
 
 export default function PatientPage() {
-  const { opaqueId } = useParams();
+  const params = useParams();
+  const search = useSearchParams();
+  const opaqueId = (params?.opaqueId as string) || search.get("opaqueId") || "";
   const [data, setData] = useState<any>(null);
   const [status, setStatus] = useState<string>("เริ่มโหลดหน้า…");
   const [sdkReady, setSdkReady] = useState(false);
