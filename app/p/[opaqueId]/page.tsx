@@ -15,8 +15,13 @@ export default function PatientPage() {
   const [status, setStatus] = useState<string>("เริ่มโหลดหน้า…");
   const [sdkReady, setSdkReady] = useState(false);
   const [needLogin, setNeedLogin] = useState(false);
+  const [needAddFriend, setNeedAddFriend] = useState(false);
 
   const liffId = process.env.NEXT_PUBLIC_LIFF_ID!;
+  const basicId = process.env.NEXT_PUBLIC_LINE_BASIC_ID || "";
+  const withAt = basicId.startsWith("@") ? basicId : "@" + basicId;
+  const deepLink = `line://ti/p/${withAt}`;
+  const webLink = `https://line.me/R/ti/p/${withAt}`;
 
   useEffect(() => {
     if (!sdkReady) return;
@@ -40,7 +45,7 @@ export default function PatientPage() {
         const profile = await window.liff.getProfile();
         setStatus((s) => s + `\nได้โปรไฟล์: ${profile?.displayName}`);
 
-        // เรียก activate
+        // activate
         const res = await fetch(
           `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/p/${opaqueId}/activate`,
           {
@@ -51,6 +56,17 @@ export default function PatientPage() {
         );
         const body = await res.text();
         setStatus((s) => s + `\nPOST activate ${res.status} → ${body}`);
+
+        // เช็คว่าเป็นเพื่อน OA หรือยัง
+        if (window.liff.getFriendship) {
+          const friend = await window.liff.getFriendship();
+          if (!friend.friendFlag) {
+            setNeedAddFriend(true);
+            setStatus((s) => s + "\nยังไม่ได้เพิ่มเพื่อน OA");
+          } else {
+            setStatus((s) => s + "\nเป็นเพื่อน OA แล้ว");
+          }
+        }
       } catch (e: any) {
         setStatus((s) => s + `\nLIFF init error: ${e?.message || String(e)}`);
       }
@@ -81,6 +97,23 @@ export default function PatientPage() {
     })();
   }, [opaqueId]);
 
+  function handleAddFriend() {
+    try {
+      if (window.liff && window.liff.isInClient()) {
+        // เปิดใน LINE app โดยตรง
+        window.liff.openWindow({ url: webLink, external: false });
+      } else {
+        // เปิดจาก browser → บังคับ deep link
+        window.location.href = deepLink;
+        setTimeout(() => {
+          window.location.href = webLink;
+        }, 800);
+      }
+    } catch (e) {
+      window.location.href = webLink;
+    }
+  }
+
   return (
     <div className="p-4 space-y-4">
       {/* โหลด LIFF SDK */}
@@ -108,8 +141,17 @@ export default function PatientPage() {
         </button>
       )}
 
+      {needAddFriend && (
+        <button
+          onClick={handleAddFriend}
+          className="bg-green-600 text-white px-4 py-2 rounded"
+        >
+          เพิ่มเพื่อน OA
+        </button>
+      )}
+
       {data && (
-        <div className="space-y-1">
+        <div className="space-y-1 border p-3 rounded bg-white">
           <div>
             <b>ผู้ป่วย:</b> {data?.patient?.fullName}
           </div>
