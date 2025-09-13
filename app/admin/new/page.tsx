@@ -40,7 +40,7 @@ export default function NewPrescriptionPage() {
       }
     );
     const data = await res.json();
-    const url = `${window.location.origin}/p/${data.opaqueId}`;
+    const url = `https://liff.line.me/${process.env.NEXT_PUBLIC_LIFF_ID}?opaqueId=${data.opaqueId}`;
     setLink(url);
   };
 
