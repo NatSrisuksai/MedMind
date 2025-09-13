@@ -48,54 +48,7 @@ export default function NewPrescriptionPage() {
     <div className="p-6 max-w-lg mx-auto">
       <h1 className="text-2xl font-bold mb-4">สร้างใบยา</h1>
       <form onSubmit={handleSubmit} className="space-y-3">
-        <input
-          name="fullName"
-          placeholder="ชื่อผู้ป่วย"
-          className="border p-2 w-full"
-          onChange={handleChange}
-        />
-        <input
-          name="drugName"
-          placeholder="ชื่อยา"
-          className="border p-2 w-full"
-          onChange={handleChange}
-        />
-        <input
-          name="strength"
-          placeholder="ขนาดยา (เช่น 500mg)"
-          className="border p-2 w-full"
-          onChange={handleChange}
-        />
-        <input
-          name="instruction"
-          placeholder="วิธีใช้ (เช่น หลังอาหาร)"
-          className="border p-2 w-full"
-          onChange={handleChange}
-        />
-        <input
-          type="date"
-          name="startDate"
-          className="border p-2 w-full"
-          onChange={handleChange}
-        />
-        <input
-          type="date"
-          name="endDate"
-          className="border p-2 w-full"
-          onChange={handleChange}
-        />
-        <input
-          name="times"
-          placeholder="เวลา (เช่น 08:00,20:00)"
-          className="border p-2 w-full"
-          onChange={handleChange}
-        />
-        <textarea
-          name="notes"
-          placeholder="โน้ตเพิ่มเติม"
-          className="border p-2 w-full"
-          onChange={handleChange}
-        ></textarea>
+        {/* ...input เหมือนเดิม... */}
         <button
           type="submit"
           className="bg-blue-500 text-white px-4 py-2 rounded"

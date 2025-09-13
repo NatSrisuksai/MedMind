@@ -12,13 +12,30 @@ declare global {
 export default function PatientPage() {
   const params = useParams();
   const search = useSearchParams();
-  const opaqueId = (params?.opaqueId as string) || search.get("opaqueId") || "";
+
+  // --- ดึง opaqueId จาก path, query, และ liff.state (สำคัญ!)
+  const resolveOpaqueId = () => {
+    const fromPath = (params?.opaqueId as string) || "";
+    if (fromPath) return fromPath;
+
+    const fromQuery = search.get("opaqueId") || "";
+    if (fromQuery) return fromQuery;
+
+    const state = search.get("liff.state"); // เช่น "?opaqueId=ee0dfbf9"
+    if (state) {
+      const sp = new URLSearchParams(state.replace(/^\?/, ""));
+      const fromState = sp.get("opaqueId") || "";
+      if (fromState) return fromState;
+    }
+    return "";
+  };
+  const opaqueId = resolveOpaqueId();
+
   const [data, setData] = useState<any>(null);
   const [status, setStatus] = useState<string>("เริ่มโหลดหน้า…");
   const [sdkReady, setSdkReady] = useState(false);
   const [needLogin, setNeedLogin] = useState(false);
   const [friendFlag, setFriendFlag] = useState<null | boolean>(null);
-  const [apiCT, setApiCT] = useState<string>("");
 
   const LIFF_ID = process.env.NEXT_PUBLIC_LIFF_ID || "";
   const BACKEND = process.env.NEXT_PUBLIC_BACKEND_URL || "";
@@ -27,26 +44,27 @@ export default function PatientPage() {
     ? BASIC_ID_RAW
     : "@" + BASIC_ID_RAW;
 
-  // 3 ทางเปิด OA
-  const deepLink = `line://ti/p/${BASIC_ID_WITH_AT}`; // เปิดแอปโดยตรง (นอก LIFF เท่านั้น)
-  const webLink = `https://line.me/R/ti/p/${BASIC_ID_WITH_AT}`; // พยายามเปิดแอปผ่าน universal link
-  const pageLink = `https://page.line.me/${BASIC_ID_WITH_AT.replace("@", "")}`; // หน้า OA แบบเว็บ
-
+  const webLink = `https://line.me/R/ti/p/${BASIC_ID_WITH_AT}`;
+  const deepLink = `line://ti/p/${BASIC_ID_WITH_AT}`;
   const append = (s: string) => setStatus((prev) => prev + "\n" + s);
 
-  // โหลดข้อมูลใบยา + โชว์ content-type เพื่อเช็ค ngrok interstitial
+  // โหลดข้อมูลใบยา
   useEffect(() => {
+    if (!opaqueId) {
+      append("[API] ไม่มี opaqueId");
+      return;
+    }
     (async () => {
       try {
         append("[API] GET prescription …");
         const res = await fetch(`${BACKEND}/api/p/${opaqueId}`);
-        setApiCT(res.headers.get("content-type") || "");
+        const ct = res.headers.get("content-type") || "";
         const txt = await res.text();
-        try {
+        if (ct.includes("application/json")) {
           const json = JSON.parse(txt);
           setData(json);
           append(`[API] GET prescription ${res.status} (JSON)`);
-        } catch {
+        } else {
           append(
             `[API] GET prescription ${res.status} (ไม่ใช่ JSON): ${txt.slice(
               0,
@@ -60,7 +78,7 @@ export default function PatientPage() {
     })();
   }, [opaqueId, BACKEND]);
 
-  // บูต LIFF แบบไม่เด้ง login อัตโนมัติ
+  // บูต LIFF
   useEffect(() => {
     if (!sdkReady) return;
     if (!LIFF_ID) {
@@ -73,7 +91,7 @@ export default function PatientPage() {
         append("[LIFF] init …");
         await window.liff.init({
           liffId: LIFF_ID,
-          withLoginOnExternalBrowser: false,
+          withLoginOnExternalBrowser: true,
         });
         append(
           `[LIFF] init OK, isInClient=${window.liff.isInClient()}, isLoggedIn=${window.liff.isLoggedIn()}`
@@ -92,9 +110,7 @@ export default function PatientPage() {
         if (window.liff.getFriendship) {
           const f = await window.liff.getFriendship();
           setFriendFlag(!!f?.friendFlag);
-          append(`[LIFF] getFriendship.friendFlag=${String(f?.friendFlag)}`);
-        } else {
-          append("[LIFF] getFriendship ไม่พร้อมใน context นี้");
+          append(`[LIFF] friendship.friendFlag=${String(f?.friendFlag)}`);
         }
 
         // activate
@@ -104,8 +120,7 @@ export default function PatientPage() {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ lineUserId: prof.userId }),
         });
-        const b = await r.text();
-        append(`[API] POST activate ${r.status} → ${b}`);
+        append(`[API] POST activate ${r.status}`);
       } catch (e: any) {
         append(`[LIFF] error: ${e?.message || String(e)}`);
       }
@@ -113,40 +128,26 @@ export default function PatientPage() {
   }, [sdkReady, LIFF_ID, BACKEND, opaqueId]);
 
   // ปุ่มต่าง ๆ
-  const login = () => window.liff.login();
+  const login = () => {
+    // สำคัญ! ให้ redirect กลับ base /p/ (ไม่ใส่ opaqueId) เพื่อกัน 404/liff.state เพี้ยน
+    const base = `${location.origin}/p/`;
+    window.liff.login({ redirectUri: base });
+  };
   const logout = () => {
     window.liff.logout();
-    location.reload();
+    location.href = `${location.origin}/p/`;
   };
 
   const openOA_inLINE = () => {
-    // แนะนำที่สุด: อยู่ใน LIFF → เปิดใน LINE เอง
     if (window.liff?.isInClient()) {
       window.liff.openWindow({ url: webLink, external: false });
-      append("[OA] openWindow external:false → webLink");
+      append("[OA] open in LINE");
     } else {
-      append("[OA] ไม่ได้อยู่ใน LIFF, ใช้ deep link แทน");
-      openOA_outside();
-    }
-  };
-  const openOA_outside = () => {
-    // เผื่อเปิดจากเบราว์เซอร์นอก LINE
-    try {
       window.location.href = deepLink;
-      append("[OA] deepLink fired");
       setTimeout(() => {
         window.location.href = webLink;
-        append("[OA] fallback webLink fired");
       }, 700);
-    } catch {
-      window.location.href = pageLink;
-      append("[OA] fallback pageLink fired");
     }
-  };
-  const openOA_page = () => {
-    // ดูหน้า OA แบบเว็บ (debug)
-    window.open(pageLink, "_blank");
-    append("[OA] open pageLink in new tab");
   };
 
   // แผง debug สั้น ๆ
@@ -164,9 +165,8 @@ export default function PatientPage() {
       LIFF_ID,
       BACKEND,
       BASIC_ID: BASIC_ID_RAW,
-      contentTypePrescription: apiCT,
     }),
-    [apiCT, LIFF_ID, BACKEND, BASIC_ID_RAW]
+    [LIFF_ID, BACKEND, BASIC_ID_RAW]
   );
 
   return (
@@ -183,7 +183,6 @@ export default function PatientPage() {
 
       <h1 className="text-lg font-bold">Patient Page</h1>
 
-      {/* DEBUG PANEL */}
       <div className="text-xs bg-gray-50 border rounded p-2">
         <div>
           <b>ENV</b>
@@ -191,10 +190,10 @@ export default function PatientPage() {
         <div>host: {envInfo.host}</div>
         <div>isInClient: {String(envInfo.isInClient)}</div>
         <div>isLoggedIn: {String(envInfo.isLoggedIn)}</div>
+        <div>opaqueId: {opaqueId || "(none)"}</div>
         <div>LIFF_ID: {envInfo.LIFF_ID?.slice(0, 6)}…</div>
         <div>BACKEND: {envInfo.BACKEND}</div>
         <div>BASIC_ID: {envInfo.BASIC_ID}</div>
-        <div>GET /api/p content-type: {envInfo.contentTypePrescription}</div>
       </div>
 
       <pre className="whitespace-pre-wrap bg-gray-100 p-2 rounded text-xs leading-5 max-h-64 overflow-auto">
@@ -210,35 +209,18 @@ export default function PatientPage() {
             Login ด้วย LINE
           </button>
         )}
-        {!needLogin && (
+        {!needLogin && friendFlag === false && (
           <button
-            onClick={logout}
-            className="bg-gray-600 text-white px-3 py-2 rounded"
+            onClick={openOA_inLINE}
+            className="bg-green-600 text-white px-3 py-2 rounded"
           >
-            Logout (ทดสอบ)
+            เพิ่มเพื่อน OA
           </button>
         )}
-        {friendFlag === false && (
-          <>
-            <button
-              onClick={openOA_inLINE}
-              className="bg-green-600 text-white px-3 py-2 rounded"
-            >
-              เพิ่มเพื่อน OA (เปิดใน LINE)
-            </button>
-            <button
-              onClick={openOA_outside}
-              className="bg-emerald-600 text-white px-3 py-2 rounded"
-            >
-              เพิ่มเพื่อน OA (deep link)
-            </button>
-            <button
-              onClick={openOA_page}
-              className="bg-yellow-600 text-white px-3 py-2 rounded"
-            >
-              เปิดหน้า OA แบบเว็บ (debug)
-            </button>
-          </>
+        {!needLogin && friendFlag === true && (
+          <span className="inline-block bg-emerald-100 text-emerald-700 px-3 py-2 rounded">
+            เป็นเพื่อน OA แล้ว ✅
+          </span>
         )}
       </div>
 
