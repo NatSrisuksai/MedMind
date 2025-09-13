@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
+import Script from "next/script";
 
 declare global {
   interface Window {
@@ -11,118 +12,122 @@ declare global {
 export default function PatientPage() {
   const { opaqueId } = useParams();
   const [data, setData] = useState<any>(null);
-  const [status, setStatus] = useState<string>("");
-  const [friendFlag, setFriendFlag] = useState<boolean | null>(null);
+  const [status, setStatus] = useState<string>("เริ่มโหลดหน้า…");
+  const [sdkReady, setSdkReady] = useState(false);
 
-  const OA_BASIC_ID = process.env.NEXT_PUBLIC_LINE_BASIC_ID!; // ไม่มี @
-  const OA_ADD_URL = `https://page.line.me/${OA_BASIC_ID}`; // ลิงก์เพิ่มเพื่อน OA
+  // โหลด LIFF SDK
+  // IMPORTANT: ต้องมีสคริปต์นี้ถึงจะมี window.liff
+  const liffId = process.env.NEXT_PUBLIC_LIFF_ID!;
 
   useEffect(() => {
-    const initLiff = async () => {
+    // ดึงข้อมูลยา ก่อนก็ได้
+    (async () => {
       try {
-        console.log("[LIFF] init start");
-        await window.liff.init({ liffId: process.env.NEXT_PUBLIC_LIFF_ID! });
-        console.log("[LIFF] init done, isLoggedIn =", window.liff.isLoggedIn());
+        setStatus((s) => s + "\nดึงข้อมูลใบยา…");
+        const res = await fetch(
+          `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/p/${opaqueId}`
+        );
+        const txt = await res.text();
+        try {
+          const json = JSON.parse(txt);
+          setData(json);
+          setStatus((s) => s + `\nGET prescription ${res.status}`);
+        } catch {
+          setStatus(
+            (s) => s + `\nGET prescription ${res.status} (ไม่ใช่ JSON): ${txt}`
+          );
+        }
+      } catch (e: any) {
+        setStatus((s) => s + `\nGET prescription error: ${e?.message || e}`);
+      }
+    })();
+  }, [opaqueId]);
+
+  useEffect(() => {
+    if (!sdkReady) return;
+    if (!liffId) {
+      setStatus((s) => s + "\n[NEXT_PUBLIC_LIFF_ID] ว่าง/ไม่ได้ตั้งค่า");
+      return;
+    }
+
+    const boot = async () => {
+      try {
+        setStatus((s) => s + "\nเริ่ม LIFF init…");
+        await window.liff.init({ liffId });
+        setStatus(
+          (s) =>
+            s + `\nLIFF init สำเร็จ (isLoggedIn=${window.liff.isLoggedIn()})`
+        );
 
         if (!window.liff.isLoggedIn()) {
-          console.log("[LIFF] not logged in → login()");
+          setStatus((s) => s + "\nยังไม่ล็อกอิน → redirect ไป login()");
           window.liff.login();
           return;
         }
 
-        // โปรไฟล์ผู้ใช้
         const profile = await window.liff.getProfile();
-        console.log("[LIFF] profile =", profile);
-        const userId = profile.userId;
+        setStatus((s) => s + `\nได้โปรไฟล์: ${profile?.displayName || ""}`);
 
-        // เช็คว่าเป็นเพื่อน OA แล้วหรือยัง
+        // (optional) เช็คเป็นเพื่อน OA หรือยัง
         if (window.liff.getFriendship) {
           const f = await window.liff.getFriendship();
-          console.log("[LIFF] friendship =", f);
-          setFriendFlag(!!f?.friendFlag);
-        } else {
-          console.log("[LIFF] getFriendship not available in this context");
+          setStatus((s) => s + `\nfriendFlag=${String(f?.friendFlag)}`);
         }
 
-        // call activate
-        console.log("[API] POST activate start");
+        // activate
+        setStatus((s) => s + "\nเรียก POST /activate…");
         const res = await fetch(
           `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/p/${opaqueId}/activate`,
           {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ lineUserId: userId }),
+            body: JSON.stringify({ lineUserId: profile.userId }),
           }
         );
-        const txt = await res.text();
-        console.log("[API] POST activate status=", res.status, "body=", txt);
-        if (!res.ok) {
-          setStatus("ผูกกับ LINE ไม่สำเร็จ ❌");
-          return;
-        }
-        setStatus("ผูกกับ LINE สำเร็จแล้ว ✅");
-      } catch (e) {
-        console.error("[LIFF] error:", e);
-        setStatus("เกิดข้อผิดพลาดในการเชื่อมต่อ LIFF ❌");
+        const body = await res.text();
+        setStatus((s) => s + `\nPOST activate ${res.status} → ${body}`);
+      } catch (e: any) {
+        setStatus((s) => s + `\nLIFF error: ${e?.message || String(e)}`);
       }
     };
-
-    // ดึงข้อมูลยา
-    (async () => {
-      try {
-        console.log("[API] GET prescription start");
-        const res = await fetch(
-          `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/p/${opaqueId}`
-        );
-        const body = await res.json();
-        console.log(
-          "[API] GET prescription status=",
-          res.status,
-          "body=",
-          body
-        );
-        setData(body);
-      } catch (e) {
-        console.error("[API] GET prescription error:", e);
-      }
-    })();
-
-    initLiff();
-  }, [opaqueId]);
-
-  if (!data) return <p className="p-6">กำลังโหลด...</p>;
+    boot();
+  }, [sdkReady, liffId, opaqueId]);
 
   return (
-    <div className="p-6 max-w-lg mx-auto space-y-3">
-      <h1 className="text-xl font-bold">ข้อมูลยา</h1>
-      <p>
-        <strong>ชื่อผู้ป่วย:</strong> {data?.patient?.fullName}
-      </p>
-      <p>
-        <strong>ยา:</strong> {data.drugName} {data.strength}
-      </p>
-      <p>
-        <strong>วิธีใช้:</strong> {data.instruction}
-      </p>
-      <p>
-        <strong>เวลา:</strong> {data.timesCsv}
-      </p>
+    <div className="p-4 space-y-4">
+      {/* โหลดสคริปต์ LIFF */}
+      <Script
+        src="https://static.line-scdn.net/liff/edge/2/sdk.js"
+        strategy="afterInteractive"
+        onLoad={() => {
+          setSdkReady(true);
+          setStatus((s) => s + "\nโหลด LIFF SDK แล้ว");
+        }}
+        onError={(e) => setStatus((s) => s + "\nโหลด LIFF SDK ล้มเหลว")}
+      />
+      <h1 className="text-lg font-bold">Patient Page</h1>
 
-      {status && <p className="mt-2">{status}</p>}
+      <pre className="whitespace-pre-wrap bg-gray-100 p-2 rounded text-sm">
+        {status}
+      </pre>
 
-      {friendFlag === false && (
-        <div className="mt-4 p-3 border rounded bg-yellow-50">
-          <p className="mb-2">
-            ยังไม่ได้เพิ่มเพื่อน OA — กรุณาเพิ่มเพื่อนเพื่อรับการแจ้งเตือน
-          </p>
-          <a
-            href={OA_ADD_URL}
-            target="_blank"
-            className="inline-block bg-green-600 text-white px-4 py-2 rounded"
-          >
-            เพิ่มเพื่อน OA
-          </a>
+      {data ? (
+        <div className="space-y-1">
+          <div>
+            <b>ผู้ป่วย:</b> {data?.patient?.fullName}
+          </div>
+          <div>
+            <b>ยา:</b> {data?.drugName} {data?.strength}
+          </div>
+          <div>
+            <b>วิธีใช้:</b> {data?.instruction}
+          </div>
+          <div>
+            <b>เวลา:</b> {data?.timesCsv}
+          </div>
         </div>
+      ) : (
+        <div>กำลังโหลดข้อมูลยา…</div>
       )}
     </div>
   );
