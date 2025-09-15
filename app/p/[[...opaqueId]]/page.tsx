@@ -23,7 +23,7 @@ export default function StealthLiffPage() {
         setStatus("init");
 
         // @ts-ignore
-        const liff = window.liff;
+        const liff = (window as any).liff
         if (!liff) throw new Error("LIFF SDK not found");
 
         await liff.init({ liffId: process.env.NEXT_PUBLIC_LIFF_ID! });
