@@ -5,7 +5,7 @@ import { useEffect, useState } from "react";
 function getOpaqueIdFromUrl() {
   try {
     const url = new URL(window.location.href);
-    // รองรับกรณี redirect ของ LINE: liff.state อาจห่อ query เดิมไว้
+    // liff.state จะห่อ query เดิมไว้เวลา redirect กลับมา
     const state = url.searchParams.get("liff.state");
     const search = new URLSearchParams(state || url.search);
     return (search.get("opaqueId") || "").trim();
@@ -29,15 +29,13 @@ export default function StealthLiffPage() {
         await liff.init({ liffId: process.env.NEXT_PUBLIC_LIFF_ID! });
 
         if (!liff.isLoggedIn()) {
-          // กลับมาที่ /p/ เสมอ เพื่อให้ liff.state ถือ query เดิมไว้
-          const base = `${location.origin}/p/`;
+          const base = `${location.origin}/p/`; // ต้องมี route /p จริง
           return liff.login({ redirectUri: base });
         }
 
         setStatus("friendship");
         const friendship = await liff.getFriendship?.();
         if (!friendship?.friendFlag) {
-          // ยังไม่เป็นเพื่อน → เด้งไปหน้าจอแอดเพื่อน OA
           const basicId = process.env.NEXT_PUBLIC_LINE_BASIC_ID || "";
           if (basicId) {
             location.href = `line://ti/p/@${basicId}`;
@@ -70,10 +68,9 @@ export default function StealthLiffPage() {
           }
         );
 
-        // เสร็จแล้วปิดหน้าต่าง—ผู้ใช้จะเห็นแชท OA ที่ได้รับข้อความ
         liff?.closeWindow?.();
-      } catch (err) {
-        console.error(err);
+      } catch (e) {
+        console.error(e);
         setStatus("error");
         // @ts-ignore
         window.liff?.closeWindow?.();
@@ -81,6 +78,5 @@ export default function StealthLiffPage() {
     })();
   }, []);
 
-  // หน้า stealth: ไม่ต้องแสดงอะไร
   return <div style={{ display: "none" }} data-status={status} />;
 }
