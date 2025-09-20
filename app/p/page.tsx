@@ -133,37 +133,28 @@ export default function StealthLiffPage() {
       <div style={{ textAlign: "center", padding: "20px" }}>
         {/* Loading State */}
         {(status === "init" || status === "friendship" || status === "profile" || status === "binding") && (
-          <div>
-            <div style={{ marginBottom: "10px" }}>
-              <svg width="40" height="40" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg">
-                <circle cx="20" cy="20" r="18" stroke="#06B6D4" strokeWidth="4" fill="none" opacity="0.3"/>
-                <circle cx="20" cy="20" r="18" stroke="#06B6D4" strokeWidth="4" fill="none"
-                  strokeDasharray="70 30"
-                  strokeLinecap="round"
-                  style={{ animation: "spin 1s linear infinite" }}/>
-              </svg>
-            </div>
-            <div style={{ color: "#666" }}>กำลังเชื่อมต่อ...</div>
+          <div style={{ color: "#666", fontSize: "16px" }}>
+            กำลังเชื่อมต่อ...
           </div>
         )}
         
         {/* Success State */}
         {status === "success" && (
-          <div style={{ color: "#10B981" }}>
-            ✓ เชื่อมต่อสำเร็จ
+          <div style={{ color: "#10B981", fontSize: "18px" }}>
+            ✔ เชื่อมต่อสำเร็จ
           </div>
         )}
         
         {/* Error States */}
         {(status === "error" || status === "conflict" || status === "not-found" || status === "missing-opaque") && (
-          <div style={{ color: "#EF4444" }}>
+          <div style={{ color: "#EF4444", fontSize: "16px" }}>
             {errorMessage || "เกิดข้อผิดพลาด"}
           </div>
         )}
         
         {/* Waiting for Add Friend */}
         {status === "waiting-add-friend" && (
-          <div style={{ color: "#666" }}>
+          <div style={{ color: "#666", fontSize: "16px" }}>
             กรุณาเพิ่มเพื่อนก่อน...
           </div>
         )}
@@ -171,12 +162,6 @@ export default function StealthLiffPage() {
       
       {/* Hidden status for debugging */}
       <div style={{ display: "none" }} data-status={status} data-error={errorMessage} />
-      
-      <style jsx>{`
-        @keyframes spin {
-          to { transform: rotate(360deg); }
-        }
-      `}</style>
     </div>
   );
 }

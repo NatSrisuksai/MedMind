@@ -180,11 +180,11 @@ export default function PrescriptionModal({
               {/* Bottom section */}
               <div className="flex justify-between items-end">
                 <div className="flex flex-col gap-2">
-{getMealInstruction() && (
-  <div className="px-6 py-3 bg-gray-800 text-white rounded-lg font-bold inline-block">
-    {getMealInstruction()}
-  </div>
-)}
+                {getMealInstruction() && (
+                  <div className="px-6 py-3 bg-gray-800 text-white rounded-lg font-bold inline-block">
+                    {getMealInstruction()}
+                  </div>
+                )}
                 </div>
                 
                 <div className="flex-1"></div> {/* Spacer */}
@@ -342,15 +342,16 @@ export default function PrescriptionModal({
           <div className="flex justify-between items-end">
             <div className="flex flex-col gap-2">
               {getMealInstruction() && (
-                <button className="px-6 py-3 bg-cyan-500 text-white rounded-lg font-medium">
+                <div className="px-6 py-3 bg-black text-white rounded-lg font-bold inline-block">
                   {getMealInstruction()}
-                </button>
+                </div>
               )}
             </div>
             
-            <div className="text-center">
+            <div className="flex-grow"></div> {/* ใช้ flex-grow แทน flex-1 */}
+            
+            <div className="text-center mr-0"> {/* เพิ่ม mr-0 */}
               <p className="text-xs text-gray-600 mb-2">
-                {/* รายละเอียดยา<br /> */}
                 สแกน QR Code<br />
                 เพื่อรับการแจ้งเตือน<br />
                 ผ่านแอป LINE
@@ -359,8 +360,6 @@ export default function PrescriptionModal({
                 <QRCode value={qrData} size={100} />
               </div>
             </div>
-
-            <div className="w-20"></div>
           </div>
 
           <div className="text-right mt-4 text-xs text-gray-600">
@@ -374,9 +373,13 @@ export default function PrescriptionModal({
           body * {
             visibility: hidden;
           }
+          #prescription-print, #prescription-print * {
+            visibility: visible;
+          }
           #prescription-print-version, #prescription-print-version * {
             visibility: visible;
           }
+          #prescription-print,
           #prescription-print-version {
             position: absolute;
             left: 0;
@@ -387,6 +390,19 @@ export default function PrescriptionModal({
           }
           .no-print {
             display: none !important;
+          }
+          /* ทำให้ข้อความเข้มขึ้นตอนพิมพ์ */
+          strong {
+            font-weight: 900 !important;
+            color: black !important;
+          }
+          /* ทำให้ปุ่มก่อน/หลังอาหารเข้มขึ้น */
+          .bg-black {
+            background-color: black !important;
+            color: white !important;
+            font-weight: bold !important;
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
           }
         }
       `}</style>

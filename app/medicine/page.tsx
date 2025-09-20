@@ -269,11 +269,11 @@ export default function MedicinePage() {
               {/* meal instruction and QR */}
               <div className="flex justify-between items-end">
                 <div className="flex flex-col gap-2">
-                {getMealInstruction() && (
-                  <div className="px-6 py-3 bg-gray-800 text-white rounded-lg font-bold inline-block">
-                    {getMealInstruction()}
-                  </div>
-                )}
+                  {getMealInstruction() && (
+                    <div className="px-6 py-3 bg-black text-white rounded-lg font-bold inline-block print:bg-black print:text-white">
+                      {getMealInstruction()}
+                    </div>
+                  )}
                 </div>
                 
                 <div className="text-center">
@@ -331,25 +331,45 @@ export default function MedicinePage() {
             </div>
           </div>
         </div>
-                {/* CSS for print */}
-        <style jsx global>{`
-          @media print {
-            body * {
-              visibility: hidden;
+          {/* CSS for print */}
+          <style jsx global>{`
+            @media print {
+              body * {
+                visibility: hidden;
+              }
+              #prescription-print, #prescription-print * {
+                visibility: visible;
+              }
+              #prescription-print-version, #prescription-print-version * {
+                visibility: visible;
+              }
+              #prescription-print,
+              #prescription-print-version {
+                position: absolute;
+                left: 0;
+                top: 0;
+                width: 100%;
+                border: none !important;
+                padding: 20mm !important;
+              }
+              .no-print {
+                display: none !important;
+              }
+              /* ทำให้ข้อความเข้มขึ้นตอนพิมพ์ */
+              strong {
+                font-weight: 900 !important;
+                color: black !important;
+              }
+              /* ทำให้ปุ่มก่อน/หลังอาหารเข้มขึ้น */
+              .bg-black {
+                background-color: black !important;
+                color: white !important;
+                font-weight: bold !important;
+                -webkit-print-color-adjust: exact !important;
+                print-color-adjust: exact !important;
+              }
             }
-            #prescription-print, #prescription-print * {
-              visibility: visible;
-            }
-            #prescription-print {
-              position: absolute;
-              left: 0;
-              top: 0;
-              width: 100%;
-              border: none !important;
-              padding: 20mm !important;
-            }
-          }
-        `}</style>
+          `}</style>
       </>
     );
   }
