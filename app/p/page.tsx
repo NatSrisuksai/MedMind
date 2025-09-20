@@ -8,13 +8,15 @@ function getOpaqueIdFromUrl() {
     const state = url.searchParams.get("liff.state");
     const search = new URLSearchParams(state || url.search);
     return (search.get("opaqueId") || "").trim();
-  } catch {
+  } catch (err) {
+    console.error("Error parsing URL:", err);
     return "";
   }
 }
 
 export default function StealthLiffPage() {
   const [status, setStatus] = useState("initial");
+  const [errorMessage, setErrorMessage] = useState("");
 
   useEffect(() => {
     (async () => {
@@ -22,10 +24,15 @@ export default function StealthLiffPage() {
         setStatus("init");
 
         // @ts-ignore
-        const liff = (window as any).liff
-        if (!liff) throw new Error("LIFF SDK not found");
+        const liff = (window as any).liff;
+        if (!liff) {
+          throw new Error("LIFF SDK not found");
+        }
 
-        await liff.init({ liffId: process.env.NEXT_PUBLIC_LIFF_ID! });
+        await liff.init({ 
+          liffId: process.env.NEXT_PUBLIC_LIFF_ID!,
+          withLoginOnExternalBrowser: true 
+        });
 
         if (!liff.isLoggedIn()) {
           const base = `${location.origin}/p/`; 
@@ -34,14 +41,18 @@ export default function StealthLiffPage() {
 
         setStatus("friendship");
         const friendship = await liff.getFriendship?.();
+        
         if (!friendship?.friendFlag) {
           const basicId = process.env.NEXT_PUBLIC_LINE_BASIC_ID || "";
+          
           if (basicId) {
             location.href = `line://ti/p/@${basicId}`;
+
             setTimeout(() => {
               location.href = `https://line.me/R/ti/p/@${basicId}`;
             }, 800);
           }
+          
           setStatus("waiting-add-friend");
           return;
         }
@@ -53,12 +64,16 @@ export default function StealthLiffPage() {
         const opaqueId = getOpaqueIdFromUrl();
         if (!opaqueId) {
           setStatus("missing-opaque");
-          liff?.closeWindow?.();
+          setErrorMessage("ไม่พบรหัสใบสั่งยา");
+
+          setTimeout(() => {
+            liff?.closeWindow?.();
+          }, 2000);
           return;
         }
 
         setStatus("binding");
-        await fetch(
+        const response = await fetch(
           `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/p/${opaqueId}/activate`,
           {
             method: "POST",
@@ -67,15 +82,101 @@ export default function StealthLiffPage() {
           }
         );
 
-        liff?.closeWindow?.();
+        if (!response.ok) {
+          const errorText = await response.text();
+          console.error("Activation failed:", response.status, errorText);
+
+          if (response.status === 409) {
+            setStatus("conflict");
+            setErrorMessage("ใบสั่งยานี้ถูกผูกกับบัญชี LINE อื่นแล้ว");
+          } else if (response.status === 404) {
+            setStatus("not-found");
+            setErrorMessage("ไม่พบใบสั่งยานี้ในระบบ");
+          } else {
+            setStatus("error");
+            setErrorMessage("เกิดข้อผิดพลาด กรุณาลองใหม่");
+          }
+
+          setTimeout(() => {
+            liff?.closeWindow?.();
+          }, 3000);
+          return;
+        }
+
+        setStatus("success");
+
+        setTimeout(() => {
+          liff?.closeWindow?.();
+        }, 1000);
+        
       } catch (e) {
-        console.error(e);
+        console.error("LIFF Error:", e);
         setStatus("error");
-        // @ts-ignore
-        window.liff?.closeWindow?.();
+        setErrorMessage("เกิดข้อผิดพลาด: " + (e as Error).message);
+
+        setTimeout(() => {
+          // @ts-ignore
+          window.liff?.closeWindow?.();
+        }, 3000);
       }
     })();
   }, []);
 
-  return <div style={{ display: "none" }} data-status={status} />;
+  return (
+    <div style={{ 
+      display: "flex", 
+      justifyContent: "center", 
+      alignItems: "center", 
+      minHeight: "100vh",
+      backgroundColor: "#f5f5f5"
+    }}>
+      <div style={{ textAlign: "center", padding: "20px" }}>
+        {/* Loading State */}
+        {(status === "init" || status === "friendship" || status === "profile" || status === "binding") && (
+          <div>
+            <div style={{ marginBottom: "10px" }}>
+              <svg width="40" height="40" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg">
+                <circle cx="20" cy="20" r="18" stroke="#06B6D4" strokeWidth="4" fill="none" opacity="0.3"/>
+                <circle cx="20" cy="20" r="18" stroke="#06B6D4" strokeWidth="4" fill="none"
+                  strokeDasharray="70 30"
+                  strokeLinecap="round"
+                  style={{ animation: "spin 1s linear infinite" }}/>
+              </svg>
+            </div>
+            <div style={{ color: "#666" }}>กำลังเชื่อมต่อ...</div>
+          </div>
+        )}
+        
+        {/* Success State */}
+        {status === "success" && (
+          <div style={{ color: "#10B981" }}>
+            ✓ เชื่อมต่อสำเร็จ
+          </div>
+        )}
+        
+        {/* Error States */}
+        {(status === "error" || status === "conflict" || status === "not-found" || status === "missing-opaque") && (
+          <div style={{ color: "#EF4444" }}>
+            {errorMessage || "เกิดข้อผิดพลาด"}
+          </div>
+        )}
+        
+        {/* Waiting for Add Friend */}
+        {status === "waiting-add-friend" && (
+          <div style={{ color: "#666" }}>
+            กรุณาเพิ่มเพื่อนก่อน...
+          </div>
+        )}
+      </div>
+      
+      {/* Hidden status for debugging */}
+      <div style={{ display: "none" }} data-status={status} data-error={errorMessage} />
+      
+      <style jsx>{`
+        @keyframes spin {
+          to { transform: rotate(360deg); }
+        }
+      `}</style>
+    </div>
+  );
 }

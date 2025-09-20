@@ -50,8 +50,30 @@ export default function MedicineForm({ onSubmit, isSubmitting }: MedicineFormPro
     }
   };
 
+  const [errors, setErrors] = useState<Record<string, string>>({});
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+
+    const newErrors: Record<string, string> = {};
+    
+    if (!formData.age) {
+      newErrors.age = 'กรุณากรอกอายุ';
+    }
+    
+    if (!formData.strength) {
+      newErrors.strength = 'กรุณากรอกขนาดยา';
+    }
+    
+    if (!formData.beforeMeal && !formData.afterMeal) {
+      newErrors.mealTime = 'กรุณาเลือกรับประทานก่อนหรือหลังอาหาร';
+    }
+    
+    if (Object.keys(newErrors).length > 0) {
+      setErrors(newErrors);
+      return;
+    }
+    
+    setErrors({});
     onSubmit(formData);
   };
 
@@ -77,15 +99,15 @@ export default function MedicineForm({ onSubmit, isSubmitting }: MedicineFormPro
   };
 
   // คำนวณเวลาแจ้งเตือนตามการเลือก ก่อน/หลังอาหาร
-  const getMealTimeLabel = () => {
-    if (formData.beforeMeal && !formData.afterMeal) {
-      return "เวลา: เช้า (07:30) | เที่ยง (11:30) | เย็น (17:30) | ก่อนนอน (20:00)";
-    } else if (!formData.beforeMeal && formData.afterMeal) {
-      return "เวลา: เช้า (08:30) | เที่ยง (12:30) | เย็น (18:30) | ก่อนนอน (20:00)";
-    } else {
-      return "เวลา: เช้า (08:00) | เที่ยง (12:00) | เย็น (18:00) | ก่อนนอน (20:00)";
-    }
-  };
+  // const getMealTimeLabel = () => {
+  //   if (formData.beforeMeal && !formData.afterMeal) {
+  //     return "เวลา: เช้า (07:30) | เที่ยง (11:30) | เย็น (17:30) | ก่อนนอน (20:00)";
+  //   } else if (!formData.beforeMeal && formData.afterMeal) {
+  //     return "เวลา: เช้า (08:30) | เที่ยง (12:30) | เย็น (18:30) | ก่อนนอน (20:00)";
+  //   } else {
+  //     return "เวลา: เช้า (08:00) | เที่ยง (12:00) | เย็น (18:00) | ก่อนนอน (20:00)";
+  //   }
+  // };
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
@@ -136,17 +158,23 @@ export default function MedicineForm({ onSubmit, isSubmitting }: MedicineFormPro
         </div>
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">
-            อายุ
+            อายุ *
           </label>
           <input
             type="number"
             name="age"
             value={formData.age || ''}
-            onChange={handleChange}
+            onChange={(e) => {
+              handleChange(e);
+              if (errors.age) setErrors({...errors, age: ''});
+            }}
             min="0"
             max="150"
-            className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:border-cyan-500"
+            className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:border-cyan-500 ${
+              errors.age ? 'border-red-500' : ''
+            }`}
           />
+          {errors.age && <p className="text-red-500 text-sm mt-1">{errors.age}</p>}
         </div>
       </div>
 
@@ -169,7 +197,7 @@ export default function MedicineForm({ onSubmit, isSubmitting }: MedicineFormPro
       <div className="grid grid-cols-2 gap-4">
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">
-            ชื่อยา *
+            ชื่อยา
           </label>
           <input
             type="text"
@@ -188,10 +216,16 @@ export default function MedicineForm({ onSubmit, isSubmitting }: MedicineFormPro
             type="text"
             name="strength"
             value={formData.strength}
-            onChange={handleChange}
+            onChange={(e) => {
+              handleChange(e);
+              if (errors.strength) setErrors({...errors, strength: ''});
+            }}
             placeholder="500 mg"
-            className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:border-cyan-500"
+            className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:border-cyan-500 ${
+              errors.strength ? 'border-red-500' : ''
+            }`}
           />
+          {errors.strength && <p className="text-red-500 text-sm mt-1">{errors.strength}</p>}
         </div>
       </div>
 
@@ -214,7 +248,7 @@ export default function MedicineForm({ onSubmit, isSubmitting }: MedicineFormPro
       {/* วิธีการรับประทาน */}
       <div>
         <label className="block text-sm font-medium text-gray-700 mb-2">
-          วิธีการรับประทาน
+          วิธีการรับประทาน *
         </label>
         <div className="flex gap-4">
           <label className="flex items-center">
@@ -222,7 +256,10 @@ export default function MedicineForm({ onSubmit, isSubmitting }: MedicineFormPro
               type="checkbox"
               name="beforeMeal"
               checked={formData.beforeMeal}
-              onChange={handleChange}
+              onChange={(e) => {
+                handleChange(e);
+                if (errors.mealTime) setErrors({...errors, mealTime: ''});
+              }}
               className="mr-2"
             />
             <span>ก่อนอาหาร</span>
@@ -232,13 +269,18 @@ export default function MedicineForm({ onSubmit, isSubmitting }: MedicineFormPro
               type="checkbox"
               name="afterMeal"
               checked={formData.afterMeal}
-              onChange={handleChange}
+              onChange={(e) => {
+                handleChange(e);
+                if (errors.mealTime) setErrors({...errors, mealTime: ''});
+              }}
               className="mr-2"
             />
             <span>หลังอาหาร</span>
           </label>
         </div>
+        {errors.mealTime && <p className="text-red-500 text-sm mt-1">{errors.mealTime}</p>}
       </div>
+
 
       {/* รายละเอียดการรับประทาน */}
       <div>
@@ -295,9 +337,9 @@ export default function MedicineForm({ onSubmit, isSubmitting }: MedicineFormPro
             />
           </div>
         </div>
-        <div className="text-xs text-gray-500 mt-2">
+        {/* <div className="text-xs text-gray-500 mt-2">
           {getMealTimeLabel()}
-        </div>
+        </div> */}
       </div>
 
       {/* หมายเหตุ */}
